@@ -2,6 +2,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 import numpy as np
 from matplotlib import pyplot as plt
+from scipy.optimize import curve_fit
 
 #%%
 #trouver le 0
@@ -12,7 +13,7 @@ plt.show()
 
 
 #%%
-#prendre la valeur médiane en x et y
+#prendre la valeur médiane en x et y ici par simple volonté de clarté pour la vue, ne change absolument rien au reste
 midx = round(( cal[0,-1] - cal[0,0] )/2) # puisque x est un array de 0 à... sa valeur
                                          # est aussi la position de la valeur de y
 plt.plot(cal[0,:]-midx,cal[1,:]) # on voit que les premiers pic sont en -200 et 200
@@ -31,11 +32,34 @@ picN3, = np.where(cal[1,:] == np.max(cal[1,-350+midx:-300+midx]))
 picP3, = np.where(cal[1,:] == np.max(cal[1,midx+300:midx+400]))
 dist3 = (picP3-picN3)[0]
 
+picN4, = np.where(cal[1,:] == np.max(cal[1,-400+midx:-350+midx]))
+picP4, = np.where(cal[1,:] == np.max(cal[1,400+midx:450+midx]))
+dist4 = (picP4-picN4)[0]
 
-#avec la taille des pixels, nous pourrions trouver la distance réelle entre les raies pour avoir un système d'unités
+
+#%% trouver la valeur de f en pixels
+
+R = [dist1,dist2,dist3,dist4]
+r_n = [(i/2)**2 for i in R]
+p = np.array([i+1 for i in range(len(r_n))])
+
+def f(p,a,b):
+    return a*p+b
+
+popt,pcov = curve_fit(f,p,r_n)
+print(f'pente est de: {popt[0]:.2e} +- {pcov[0,0]**(1/2):.0e}')
+
+#%%
+plt.scatter(p,r_n)
+plt.plot(p,p*popt[0]+popt[1])
+plt.show()
+
+#%% la pente correspond à 2f^2/n0
 
 lamb546 = 546e-09
-n0 = 2*2e-03/lamb546
+n0_546 = 2*2e-03/lamb546
+f546 = np.sqrt(popt[0]*n0_546/2)
+df456 = 1/2 * np.sqrt(n0_546/(2*popt[0])) *pcov[0,0]**(1/2)
 
 #si possible aller trouver la distance focale au lab pour pouvoir trouver les distance theta
 
