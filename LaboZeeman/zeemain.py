@@ -4,8 +4,13 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
+from scipy.stats import linregress
 import pandas as pd
 import os
+
+
+def f(p, a, b):
+    return a * p + b
 
 #%%
 #trouver les peaks et leurs distance
@@ -79,25 +84,17 @@ def graphes(file):
     p_a = np.array([i+1 for i in range(len(r_n_a))])
     p_b = np.array([i+1 for i in range(len(r_n_b))])
 
-
-
-
-    def f(p,a,b):
-        return a*p+b
-
     #popt,pcov = curve_fit(f,p,r_n)
     #print(f'pente est de: {popt[0]:.2e} +- {pcov[0,0]**(1/2):.0e}')
 
     popt_a,pcov_a = curve_fit(f,p_a,r_n_a)
-    print(f'pente des a est de: {popt_a[0]:.2e} +- {pcov_a[0,0]**(1/2):.0e}')
-
+    #print(f'pente des a est de: {popt_a[0]:.2e} +- {pcov_a[0,0]**(1/2):.0e}')
     popt_b,pcov_b = curve_fit(f,p_b,r_n_b)
-    print(f'pente des b est de: {popt_b[0]:.2e} +- {pcov_b[0,0]**(1/2):.0e}')
+    #print(f'pente des b est de: {popt_b[0]:.2e} +- {pcov_b[0,0]**(1/2):.0e}')
+
 
 
     #calcul des epsilon
-    #def eps(lambd,dist,pente_a,pente_b):
-
     lamb546 = 546e-09
     n0_546 = 2*2e-03/lamb546
     f546_a = np.sqrt(popt_a[0]*n0_546/2)
@@ -110,24 +107,17 @@ def graphes(file):
     epsilon_a = popt_a[1]*n0_546/2/f546_a**2 +1
     epsilon_b = popt_b[1]*n0_546/2/f546_b**2 +1
 
+    d_epsilon_a2 = ( (n0_546/(2*f546_a**2))**2*pcov_a[1,1] + (n0_546*popt_a[1]/f546_a**3)*df456_a**2 )
+    print('d_epsilon_a:', d_epsilon_a2)
+    d_epsilon_b2 = ((n0_546/(2*f546_b**2))**2*pcov_b[1,1] + (n0_546*popt_b[1]/f546_b**3)*df456_b**2 )
+    print('d_epsilon_b2:', d_epsilon_b2)
+
+
+
     delta_nu = np.abs(epsilon_a-epsilon_b)/2/2e-03
-    return delta_nu
-#%%
-'''print(f'la distance focale est de {f546:.3e} +- {df456:.0e}')
-
-#calcul des theta_n
-theta_n = R/f546
-print(theta_n)
-
-
-#%%
-plt.scatter(p,r_n)
-plt.plot(p,p*popt[0]+popt[1])
-plt.xlabel('ordre d\'interférence p')
-plt.ylabel(r'$r_n^2$ ($px^2$)')
-plt.tight_layout()
-plt.show()
-'''
+    d_delta_nu = np.sqrt(1/(2*2e-03)*(np.abs(d_epsilon_a2+d_epsilon_b2)))
+    print(d_delta_nu)
+    return delta_nu, d_delta_nu
 
 #%% calcul des niveaux d'énergies
 etat_i = [1,0,1] #nb atomiques s,l,j
@@ -153,10 +143,10 @@ def energy(si,li,ji,sf,lf,jf): #calcul les niveau d'énergie avec le champ B (sa
         for mi in Mi:
             for mf in Mf:
                 if mf - mi == 0 or mf - mi == 1 or mf - mi == -1:
-                    print('psi_i',li,si,ji,mi,'et psi_f',lf,sf,jf,mf)
+                    print(f'psi_i li:{li} si:{si} ji:{ji} mi:{mi} et psi_f lf:{lf} sf:{sf} jf:{jf} mf:{mf}')
                     delta_i = g_landé_i*mi
                     delta_f = g_landé_f*mf
-
+                    print(mf-mi)
                     decalage = delta_f - delta_i
                     print(decalage)
 
@@ -166,23 +156,35 @@ def RtoB(R):
 R436 = np.loadtxt('donnees//labo3//ZEE_AR_NS//436nm//R436nm.csv',delimiter=',',skiprows=1)[:,1]
 B436 = RtoB(R436)
 
-#en partant de la théorie de le f est d'environ 12cm et que il y a 0.005cm/pixel,
-
 
 #%%
 
 i=0
 A = np.loadtxt('donnees//labo3//ZEE_AR_NS//546nm//R546nm.csv', delimiter=',', skiprows=1)
 delta_nu = np.zeros(len(A))
+d_delta = np.zeros(len(A))
 for item_name in os.listdir('donnees//labo3//ZEE_AR_NS//546nm'):
     if '.csv' and 'plot_' in item_name:
         if item_name.replace('plot_','').replace("A.csv",'').replace('0','') in f'{A[:,0]}.csv':
 
-            print(item_name)
             LeFile = pd.read_csv(f"donnees//labo3//ZEE_AR_NS//546nm//{item_name}",sep=None,engine='python')
-            delta_nu[i] = graphes(LeFile)
+            delta_nu[i],d_delta[i] = graphes(LeFile)
             i+=1
 
             #creer une fonction des trucs tout en haut pour calculer les delta nu, les garder dans un tableau, puis faire
-plt.scatter(RtoB(A[:,1]),delta_nu)
+
+pcob, cov = curve_fit(f, RtoB(A[:,1]), delta_nu)
+plt.errorbar(RtoB(A[:,1]),delta_nu,yerr=d_delta,color='steelblue',label=r'$\Delta \nu$',ls='',marker='o')
+plt.plot(RtoB(A[:,1]),RtoB(A[:,1])*pcob[0]+pcob[1],color='darkorange',label='régression linéaire')
+plt.legend(loc='upper left',fontsize=14)
+plt.grid()
+plt.xlabel(r'B(T)',fontsize=14)
+plt.ylabel(r'$\Delta \nu$ (Hz)',fontsize=14)
+plt.title(r"$\Delta \nu$" f' en fonction d\'un champ magnétique B \n pour un filtre de 546nm ',fontsize=14)
+plt.savefig(f"donnees//labo3_546")
 plt.show()
+
+#%%
+delta_E = delta_nu*6.62607015e-34*3e08
+
+mu_B = delta_E/2/RtoB(A[:,1])
