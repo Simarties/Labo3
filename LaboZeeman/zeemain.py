@@ -73,9 +73,6 @@ def graphes(file):
     p_a = np.array([i+1 for i in range(len(r_n_a))])
     p_b = np.array([i+1 for i in range(len(r_n_b))])
 
-    #popt,pcov = curve_fit(f,p,r_n)
-    #print(f'pente est de: {popt[0]:.2e} +- {pcov[0,0]**(1/2):.0e}')
-
     popt_a,pcov_a = curve_fit(f,p_a,r_n_a)
     #print(f'pente des a est de: {popt_a[0]:.2e} +- {pcov_a[0,0]**(1/2):.0e}')
     popt_b,pcov_b = curve_fit(f,p_b,r_n_b)
@@ -92,7 +89,6 @@ def graphes(file):
     f546_b = np.sqrt(popt_b[0]*n0_546/2)
     df456_b = 1/2 * np.sqrt(n0_546/(2*popt_b[0])) *pcov_b[0,0]**(1/2)
 
-    #calcul du epsilon
     epsilon_a = popt_a[1]*n0_546/2/f546_a**2 +1
     epsilon_b = popt_b[1]*n0_546/2/f546_b**2 +1
 
@@ -121,7 +117,7 @@ g_landé_i = g_lande(*etat_i)
 g_landé_f546 = g_lande(*etat_f546)
 g_landé_f436 = g_lande(*etat_f436)
 
-def energy(si,li,ji,sf,lf,jf): #calcul les niveau d'énergie avec le champ B (sans compter la R546nm.csv de B ou du magnéton)
+def energy(si,li,ji,sf,lf,jf): #calcul les niveau d'énergie avec le champ B
     g_landé_i = g_lande(si,li,ji)
     g_landé_f = g_lande(sf,lf,jf)
 
@@ -138,6 +134,9 @@ def energy(si,li,ji,sf,lf,jf): #calcul les niveau d'énergie avec le champ B (sa
                     #print(mf-mi)
                     decalage = delta_f - delta_i
                     #print(decalage)
+#cette partie du code m'a permis de voir que le décalage maximal sera égal à 4 et donc que c'est la valeur
+# que l'on prendrons pour le calcul du magnéton
+
 
 #%% conversion de la résistance en champ B
 def RtoB(R):
@@ -145,7 +144,7 @@ def RtoB(R):
 
 
 
-#%%
+#%% Calcul de la valeur du magnéton pour 546nm
 
 i=0
 A = np.loadtxt('donnees//labo3//ZEE_AR_NS//546nm//R546nm.csv', delimiter=',', skiprows=1)
@@ -172,7 +171,7 @@ plt.title(r"$\Delta \nu$" f' en fonction d\'un champ magnétique B \n pour un fi
 plt.savefig(f"donnees//labo3_546")
 plt.show()
 
-#%%
+
 delta_E = delta_nu*6.62607015e-34*1e09 #le facteur 10^9 est pour convertir les GHz en Hz
 D_delta_E = d_delta*6.62607015e-34*1e09
 d_B = 0.2823 * 0.01
@@ -240,7 +239,7 @@ def epsilon(n0,f_a,df_a,f_b,df_b,popt_a,pcov_a,popt_b,pcov_b):
     return delta_nu, d_delta_nu
 
 
-#%% pour 436nm technique légèrement différente à prendre je vais trouver le milieu puis juste prendre les distances
+#%% pour 436nm technique légèrement différente à prendre à cause de la configuration donc technique différente ici
 
 i=0
 B = np.loadtxt('donnees//labo3//ZEE_AR_NS//436nmV2//R436nm.csv', delimiter=',', skiprows=1)
