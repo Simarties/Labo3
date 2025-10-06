@@ -16,11 +16,15 @@ def f(p, a, b):
 #trouver les peaks et leurs distance
 def graphes(file):
     ONEPIECE = find_peaks(file['Y'],height=max(file['Y'])*.35,prominence=0.025*np.ptp(file['Y']),distance=len(file['Y'])//200)
-    #plt.plot(file['X'],file['Y'])
-    #plt.scatter(ONEPIECE[0],ONEPIECE[1]['peak_heights'])
+    plt.plot(file['X'],file['Y'])
+    plt.scatter(ONEPIECE[0],ONEPIECE[1]['peak_heights'],label='Pic d\'intensité',color='indianred')
+    plt.legend(fontsize=14,loc='upper right')
+    plt.xlabel('distance (pixels)',fontsize=14)
+    plt.ylabel('Intensité (sans unités)',fontsize=14)
+    plt.title('Pic d\'intensité en fonction des rayons du patron de diffraction', fontsize=14)
     X = np.array(file['X'])
     midx = round((X[-1] - X[0]) / 2)
-    #plt.show()
+    plt.show()
 
     # À cause de l'emplacement de la caméra, il n'y a pas le même nombre de pic à gauche et à droite
     # donc je crée une fonction qui s'arrange de prendre le même nombre de pic de chaque côté
@@ -96,8 +100,6 @@ def graphes(file):
     print('d_epsilon_a:', d_epsilon_a2)
     d_epsilon_b2 = ((n0_546/(2*f546_b**2))**2*pcov_b[1,1] + (n0_546*popt_b[1]/f546_b**3)*df456_b**2 )
     print('d_epsilon_b2:', d_epsilon_b2)
-
-
 
     delta_nu = np.abs(epsilon_a-epsilon_b)/2/2e-03
     d_delta_nu = np.sqrt(1/(2*2e-03)*(np.abs(d_epsilon_a2+d_epsilon_b2)))
@@ -278,10 +280,76 @@ d_mu_B436 = np.sqrt((D_delta_E436/(4*RtoB(B[:,1])))**2 + ((delta_E436/(4*(RtoB(B
 print(mu_B436,d_mu_B436)
 print(RtoB(B[:,1]))
 
-#%% RAIE SUPPLÉMENTAIRE
+#%% RAIE SUPPLÉMENTAIRE on voit la superposition de plusieurs raies
 
 fichier = pd.read_csv(f"donnees//labo3//ZEE_AR_NS//577nm//plot_4.90A.csv",sep=None,engine='python')
 picos = find_peaks(fichier['Y'], height=40, prominence=0.05 * np.ptp(fichier['Y']), distance=6)
 plt.plot(fichier['X'], fichier['Y'])
 plt.scatter(picos[0], picos[1]['peak_heights'])
 plt.show()
+
+
+#%%
+#calcul de la finesse
+
+# Cette fonction permet de calculer la finesse d'un fichier de pics csv
+def calc_finesse(csv_path, halfwin=20):
+    data = pd.read_csv(csv_path)
+    x, y = data["X"].values, data["Y"].values
+
+    # Détection des pics
+    peaks, _ = find_peaks(y, height=0.3*np.max(y), prominence=0.1*np.ptp(y))
+    if len(peaks) < 2:
+        return np.nan
+
+    # Lorentzienne
+    def lorentz(xv, x0, gamma, A, B):
+        return A * (gamma**2) / ((xv - x0)**2 + gamma**2) + B
+
+    fwhm = []   #valeur à mi-hauteur
+    for pk in peaks:
+        i1, i2 = max(0, pk-halfwin), min(len(x), pk+halfwin+1)
+        xf, yf = x[i1:i2], y[i1:i2]
+        med = np.median(yf)
+        try:
+            p0 = [x[pk], 3.0, max(y[pk]-med, 1e-6), med]
+            bounds = ([x[pk]-5, 0.05, 0.0, min(yf)],
+                      [x[pk]+5, 100.0, 10*np.max(yf), max(yf)])
+            popt, _ = curve_fit(lorentz, xf, yf, p0=p0, bounds=bounds, maxfev=20000)
+            _, gamma, _, _ = popt
+            fwhm.append(2*abs(gamma))
+        except:
+            pass
+
+    if len(fwhm) < 2:
+        return np.nan
+
+    x_peaks = np.sort(x[peaks])
+    fsr = np.diff(x_peaks)
+    fwhm = np.array(fwhm)
+    fwhm_pair = 0.5*(fwhm[:-1] + fwhm[1:])
+
+    finesse_vals = fsr / fwhm_pair
+    return np.nanmean(finesse_vals)
+
+# Création d'un tableau avec tous les csv de la finesse
+files = [
+    "donnees\\labo3\\ZEE_AR_NS\\Finesse\\plot_2mm.csv",
+    "donnees\\labo3\\ZEE_AR_NS\\Finesse\\plot_4mm.csv",
+    "donnees\\labo3\\ZEE_AR_NS\\Finesse\\plot_6mm.csv",
+    "donnees\\labo3\\ZEE_AR_NS\\Finesse\\plot_8mm.csv",
+    "donnees\\labo3\\ZEE_AR_NS\\Finesse\\plot_10mm.csv"
+]
+
+# Ici, on calcule la finesse pour chacun des fichiers dans le tableau
+finesses = []
+for f in files:
+    F = calc_finesse(f)
+    finesses.append(F)
+    print(f"{f} : finesse = {F:.3f}" if not np.isnan(F) else f"{f} : échec du calcul")
+
+# Calcul de la moyenne des finesses calculées dans le bloc ci-dessus
+finesses_valides = [f for f in finesses if not np.isnan(f)]
+
+finesse_moy = np.mean(finesses_valides)
+print(f"\nFinesse moyenne sur {len(finesses_valides)} fichiers = {finesse_moy:.3f}")
