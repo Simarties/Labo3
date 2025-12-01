@@ -22,6 +22,7 @@ def graphes(file):
     plt.xlabel('distance (pixels)',fontsize=14)
     plt.ylabel('Intensité (sans unités)',fontsize=14)
     plt.title('Pic d\'intensité en fonction des rayons du patron de diffraction', fontsize=14)
+
     X = np.array(file['X'])
     midx = round((X[-1] - X[0]) / 2)
     plt.show()
